@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/gojp/goreportcard/check"
+	"github.com/yeahdongcn/goreportcard/check"
 )
 
 // BadgeHandler handles fetching the badge images

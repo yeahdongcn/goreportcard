@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/gojp/goreportcard/download"
+	"github.com/yeahdongcn/goreportcard/download"
 )
 
 const (
@@ -21,16 +21,11 @@ const (
 func CheckHandler(w http.ResponseWriter, r *http.Request, db *badger.DB) {
 	w.Header().Set("Content-Type", "application/json")
 
-	repo := download.Clean(r.FormValue("repo"))
-
-	c := download.NewProxyClient("https://proxy.golang.org")
-	moduleName, err := c.ModuleName(repo)
+	repo, err := download.Clean(r.FormValue("repo"))
 	if err != nil {
-		log.Println("ERROR: could not get module name:", err)
-	}
-
-	if moduleName != "" {
-		repo = moduleName
+		log.Println("ERROR: from download.Clean:", err)
+		http.Error(w, "Could not download the repository: "+err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	log.Printf("Checking repo %q...", repo)

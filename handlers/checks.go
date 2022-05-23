@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"strings"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v2"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/gojp/goreportcard/check"
-	"github.com/gojp/goreportcard/download"
+	"github.com/yeahdongcn/goreportcard/check"
+	"github.com/yeahdongcn/goreportcard/download"
 )
 
 type notFoundError struct {
@@ -22,8 +20,8 @@ func (n notFoundError) Error() string {
 	return fmt.Sprintf("%q not found in cache", n.repo)
 }
 
-func dirName(repo, ver string) string {
-	return fmt.Sprintf("_repos/src/%s@%s", strings.ToLower(repo), ver)
+func dirName(repo string) string {
+	return fmt.Sprintf("_repos/src/%s", repo)
 }
 
 func getFromCache(db *badger.DB, repo string) (checksResp, error) {
@@ -92,24 +90,22 @@ func newChecksResp(db *badger.DB, repo string, forceRefresh bool) (checksResp, e
 		}
 	}
 
-	c := download.NewProxyClient("https://proxy.golang.org")
-	ver, err := c.ProxyDownload(repo)
+	// fetch the repo and grade it
+	repoRoot, err := download.Download(repo, "_repos/src")
 	if err != nil {
-		log.Println("ERROR:", err)
-		return checksResp{}, fmt.Errorf("could not download repo: %v", err)
+		return checksResp{}, fmt.Errorf("could not clone repo: %v", err)
 	}
 
-	checkResult, err := check.Run(dirName(repo, ver))
+	//err := download.ProxyDownload(repo)
+	//if err != nil {
+	//	fmt.Println("ERROR:", err)
+	//}
+
+	repo = repoRoot.Root
+	checkResult, err := check.Run(dirName(repo))
 	if err != nil {
 		return checksResp{}, err
 	}
-
-	defer func() {
-		err := os.RemoveAll(dirName(repo, ver))
-		if err != nil {
-			log.Println("ERROR: could not remove dir:", err)
-		}
-	}()
 
 	t := time.Now().UTC()
 	resp := checksResp{
@@ -119,8 +115,7 @@ func newChecksResp(db *badger.DB, repo string, forceRefresh bool) (checksResp, e
 		Files:                checkResult.Files,
 		Issues:               checkResult.Issues,
 		Repo:                 repo,
-		Version:              ver,
-		ResolvedRepo:         repo,
+		ResolvedRepo:         repoRoot.Repo,
 		LastRefresh:          t,
 		LastRefreshFormatted: t.Format(time.UnixDate),
 		LastRefreshHumanized: humanize.Time(t),
